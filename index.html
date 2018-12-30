@@ -5,12 +5,15 @@
     </head>
     <body>
         My ID: <pre id="peerID"></pre>
-        Connect to: <input id="remotePeerID" type="text" />
-        <button id="connect">Connect</button>
+		<!-- Connect to: <input id="remotePeerID" type="text" /> -->
+		<a target="_new" id="link" href="" ><img id="qr" height="64" src="" alt="Your QR Code will display here once connected to peerjs cloud." /></a>
+        <!-- <button id="connect">Connect</button> -->
         <br><br>
         <textarea id="message"></textarea>
-        <button id="send">Send</button>
+		<button id="send">Send</button><br><br>
+		<button id="next">Next</button><br><br>
     </body>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/peerjs/0.3.16/peer.min.js"></script>
-    <script src="main.js"></script>
+	<!-- <script src="https://cdnjs.cloudflare.com/ajax/libs/peerjs/0.3.16/peer.min.js"></script> -->
+	<script src="https://webrtc.github.io/adapter/adapter-latest.js"></script>
+    <script src="main-peerjs.js"></script>
 </html>
