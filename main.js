@@ -1,6 +1,8 @@
 (function() {
 
-    var peer = new Peer();
+    var peer = new Peer({
+		secure: true,
+	});
     peer.on('open', function (id) {
         document.getElementById("peerID").innerHTML = peer.id;
     });
