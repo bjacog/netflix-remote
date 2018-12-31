@@ -1,0 +1,3 @@
+rootProject.name = 'netflixremotemobile'
+
+include ':app'
