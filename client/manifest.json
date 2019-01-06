@@ -2,7 +2,7 @@
     "name": "Netflix Remote",
     "version": "1.0",
 	"description": "Control netflix from your phone!",
-	"permissions": ["activeTab", "declarativeContent"],
+	"permissions": ["activeTab", "declarativeContent", "storage"],
 	"background": {
 		"scripts": ["background.js"],
 		"persistent": false
@@ -14,9 +14,10 @@
 		}
 	],
 	"page_action": {
+		"default_popup": "qr.html",
 		"default_icon": {
 			"32": "icon.png",
-			"64": "icon@2x.png",
+			"48": "icon@2x.png",
 			"128": "icon@3x.png"
 		}
 	},

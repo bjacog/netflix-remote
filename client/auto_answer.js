@@ -1,7 +1,9 @@
-var answerPC, receiveChannel, videos, ws = null;
+var answerPC, receiveChannel, videos, ws, my_uuid = null;
+
 // connect to signalling server
 setupWebsocket = function() {
-	ws = new WebSocket("ws://localhost:3210");
+	console.log("opening ws to ws://localhost:3210/" + my_uuid);
+	ws = new WebSocket("ws://localhost:3210/" + my_uuid);
 	ws.onopen = function() {
 		console.info('ws opened');
 	}
@@ -44,7 +46,7 @@ handleReceiveChannelClosedStatusChange = function(event) {
 	if (receiveChannel) {
 		console.log("Receive channel's status has changed to " + receiveChannel.readyState);
 	}
-	ws.open();
+	setupWebsocket();
 }
 
 handleReceiveMessage = function(event) {
@@ -98,8 +100,6 @@ iceConnectionStateChange = function(event) {
 	}
 }
 
-setupWebsocket();
-
 // ready to answer
 setupAnswerPC = function() {
 	answerPC = new RTCPeerConnection();
@@ -118,6 +118,10 @@ setupAnswerPC = function() {
 }
 
 sendMessage = function(message) {
+	message = {
+		uuid,
+		...message,
+	};
 	if (receiveChannel && receiveChannel.readyState !== 'disconnected') {
 		console.info('sending WebRTC message:', message);
 		receiveChannel.send(message);
@@ -165,3 +169,9 @@ addVideoDurationchangeListener = function() {
 		}, 500);
 	}
 }
+
+// get token and open connection
+chrome.storage.sync.get('my_uuid', function(data) {
+	my_uuid = data.my_uuid;
+	setupWebsocket();
+});
