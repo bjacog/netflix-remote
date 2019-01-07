@@ -1,26 +1,19 @@
-/**
- * Sample React Native App
- * https://github.com/facebook/react-native
- *
- * @format
- * @flow
- */
-
 import React, {Component} from 'react';
-import { StyleSheet, Slider } from 'react-native';
+import { AsyncStorage, FlatList, StyleSheet, Slider } from 'react-native';
+import { RNCamera } from 'react-native-camera';
 import {
-	Container,
-	Header,
-	Title,
-	Content,
-	Footer,
-	FooterTab,
-	Button,
-	Left,
-	Right,
 	Body,
+	Button,
+	Container,
+	Content,
+	Header,
 	Icon,
+	Left,
+	List,
+	ListItem,
+	Right,
 	Text,
+	Title,
 } from 'native-base';
 import { RTCPeerConnection, RTCSessionDescription } from 'react-native-webrtc';
 
@@ -35,6 +28,8 @@ export default class App extends Component {
 				currentTime: 0,
 				paused: false,
 			},
+			links: [],
+			roomID: '3947566788-844051270-586149536-4206037612'//null
 		};
 
 		this.webRTCconfiguration = {
@@ -44,19 +39,29 @@ export default class App extends Component {
 		};
 	}
 
-	componentWillMount() {
-		// backhaul over websocket
-		this.setupWebsocket();
-		// webrtc
-		this.setupWebRTC();
-	}
-
-	componentDidMount() {
-		console.info('componentDidMount', this.offerPC.iceConnectionState);
-		if (this.offerPC.iceConnectionState !== 'connected') {
-			this.createOffer();
+	async componentWillMount() {
+		// hack to set roomID
+		await AsyncStorage.setItem('roomID', this.state.roomID);
+		const roomID = await AsyncStorage.getItem('roomID');
+		console.info('roomID', roomID);
+		if (roomID) {
+			this.setState({ roomID }, () => {
+				// backhaul over websocket
+				this.setupWebsocket();
+				// webrtc
+				this.setupWebRTC();
+			});
 		}
 	}
+
+	// componentDidMount() {
+	// 	if (this.state.roomID) {
+	// 		console.info('componentDidMount', this.offerPC.iceConnectionState);
+	// 		if (this.offerPC.iceConnectionState !== 'connected') {
+	// 			this.createOffer();
+	// 		}
+	// 	}
+	// }
 
 	componentWillUnmount() {
 		if (this.ws.OPEN) {
@@ -65,7 +70,7 @@ export default class App extends Component {
 	}
 
 	setupWebsocket = () => {
-		this.ws = new WebSocket("ws://localhost:3210");
+		this.ws = new WebSocket("ws://10.0.0.14:3210/" + this.state.roomID);
 		this.ws.onopen = () => {
 			console.info('ws opened');
 		}
@@ -93,11 +98,14 @@ export default class App extends Component {
 		this.sendChannel.onmessage = this.handleReceiveMessage;
 		this.sendChannel.onopen = this.handleSendChannelStatusOpenedChange;
 		this.sendChannel.onclose = this.handleSendChannelStatusClosedChange;
+
+		this.createOffer();
 	}
 
 	handleSendChannelStatusOpenedChange = (e) => {
 		console.info('channel status change:', e);
 		this.sendCommand("get_video_state");
+		this.sendCommand("get_links");
 	}
 
 	handleSendChannelStatusClosedChange = (e) => {
@@ -114,6 +122,9 @@ export default class App extends Component {
 		const message = JSON.parse(event.data);
 		console.info('message received:', message);
 		switch(message.type) {
+			case "links":
+				this.setState({ links: message.links });
+			break;
 			case "state":
 				this.setState({
 					videoState: message.videoState,
@@ -128,7 +139,7 @@ export default class App extends Component {
 	onIceCandidate = (event) => {
 		console.info("offerPC onicecandidate", event.candidate);
 		if (event.candidate) {
-			this.ws.send(JSON.stringify({ice: event.candidate})); // "ice" is arbitrary
+			this.ws.send(JSON.stringify({ roomID: this.state.roomID, ice: event.candidate})); // "ice" is arbitrary
 		} else {
 			// All ICE candidates have been sent
 		}
@@ -139,7 +150,7 @@ export default class App extends Component {
 			const description = new RTCSessionDescription(desc);
 			this.offerPC.setLocalDescription(description, () => {
 				console.info('sending offer:', this.offerPC.localDescription);
-				this.ws.send(JSON.stringify({ offer: this.offerPC.localDescription }))
+				this.ws.send(JSON.stringify({  roomID: this.state.roomID, offer: this.offerPC.localDescription }))
 			}, (error) => {
 				console.info(error);
 			})
@@ -175,25 +186,63 @@ export default class App extends Component {
 		this.sendCommand("toggle_pause_play");
 	}
 
-	sendCommand = (command) => {
-		this.sendMessage(`{"type":"${command}"}`);
+	panProgress = (value) => {
+		this.sendCommand("progress", { value });
 	}
 
-	render() {
-		return (
-			<Container>
-				<Header>
-				<Left>
-					<Button transparent>
-					<Icon name='menu' />
-					</Button>
-				</Left>
-				<Body>
-					<Title>Netflix Remote</Title>
-				</Body>
-				<Right />
-				</Header>
+	changeVolume = (value) => {
+		this.sendCommand("volume", { value: value / 100 });
+	}
+
+	sendCommand = (command, options) => {
+		options = options ? JSON.stringify(options) : "{}";
+		console.info(`sending command: {"type":"${command}"},"options":${options}`);
+		this.sendMessage(`{"type":"${command}","options":${options}}`);
+	}
+
+	onBarCodeRead = async ({ data }) => {
+		await AsyncStorage.setItem('roomID', data);
+		this.setState({ roomID: data }, () => {
+			// backhaul over websocket
+			this.setupWebsocket();
+			// webrtc
+			this.setupWebRTC();
+		});
+	}
+
+	renderCamera = () => {
+		if (!this.state.roomID) {
+			return (
 				<Content contentContainerStyle={styles.container}>
+					<RNCamera
+						ref={ref => {
+							this.camera = ref;
+						}}
+						style = {styles.preview}
+						type={RNCamera.Constants.Type.back}
+						flashMode={RNCamera.Constants.FlashMode.on}
+						permissionDialogTitle={'Permission to use camera'}
+						permissionDialogMessage={'We need your permission to use your camera to scan the room QR Code'}
+						onBarCodeRead={this.onBarCodeRead}
+					/>
+				</Content>
+			);
+		}
+	}
+
+	renderRemote = () => {
+		if (true) {  //this.state.roomID) {
+			return (
+				<Content contentContainerStyle={styles.container}>
+					<Slider
+						// orientation="vertical"
+						onValueChange={this.changeVolume}
+						value={this.state.videoState.volume*100}
+						maximumValue={100}
+						style={{ width: 200 }}
+						minimumTrackTintColor="blue"
+						maximumTrackTintColor="red"
+					/>
 					<Button
 						large
 						block
@@ -202,20 +251,77 @@ export default class App extends Component {
 						<Icon name={this.state.videoState.paused ? 'play' : 'pause'} />
 					</Button>
 					<Slider
+						// onValueChange={this.panProgress}
 						value={this.state.videoState.currentTime}
 						maximumValue={this.state.videoState.duration}
-						style={{ width: 200 }}
+						style={{ width: 300 }}
 						minimumTrackTintColor="blue"
 						maximumTrackTintColor="red"
 					/>
 				</Content>
-				<Footer>
-				<FooterTab>
-					<Button full>
-					<Text>Footer</Text>
+			);
+		}
+	}
+
+	openLink = (href) => {
+		this.sendCommand("location", { href })
+	}
+
+	renderLink = ({ item }) => {
+		return(
+			<ListItem
+				key={item.href}
+				onPress={() => {
+					this.openLink(item.href);
+				}}
+			>
+				<Left>
+					<Text>{item.text}</Text>
+				</Left>
+				<Right>
+					<Icon name="arrow-forward" />
+				</Right>
+			</ListItem>
+		);
+	}
+
+	renderList = () => {
+		return(
+		<FlatList
+			style={{ flex: 1 }}
+			data={this.state.links}
+			keyExtractor={(item) => item.href}
+			renderItem={this.renderLink}
+		/>
+		);
+	}
+
+	render() {
+		return (
+			<Container>
+				<Header>
+				<Left>
+					<Button transparent>
+					<Icon type="FontAwesome" name='bars' />
 					</Button>
-				</FooterTab>
-				</Footer>
+				</Left>
+				<Body>
+					<Title>Netflix Remote</Title>
+				</Body>
+				<Right>
+					<Button
+						transparent
+						onPress={() => {
+							this.setState({ roomID: null });
+						}}
+					>
+						<Icon type="FontAwesome" name='qrcode' />
+					</Button>
+				</Right>
+				</Header>
+					{/* {this.renderCamera()} */}
+					{this.renderList()}
+					{this.renderRemote()}
 			</Container>
 		);
 	}
@@ -228,5 +334,14 @@ const styles = StyleSheet.create({
 		alignItems: 'center',
 		backgroundColor: '#F5FCFF',
 		padding: 10,
+	},
+	preview: {
+		position: 'absolute',
+		top: 0,
+		bottom: 0,
+		left: 0,
+		right: 0,
+		justifyContent: 'flex-end',
+		alignItems: 'center',
 	},
 });

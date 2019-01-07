@@ -26,7 +26,7 @@ setupWebsocket = function() {
 				.then(answer => answerPC.setLocalDescription(answer))
 				.then(() => {
 					console.info("sending answer:", answerPC.localDescription);
-					ws.send(JSON.stringify({ answer: answerPC.localDescription }));
+					ws.send(JSON.stringify({ roomID: my_uuid, answer: answerPC.localDescription }));
 				});
 		}
 	}
@@ -37,6 +37,7 @@ handleReceiveChannelOpenedStatusChange = function(event) {
 		console.log("Receive channel's status has changed to " + receiveChannel.readyState);
 		// send the state of the webpage
 		sendVideoState();
+		sendLinks();
 		// set video onchange handler
 		addVideoDurationchangeListener();
 	}
@@ -53,6 +54,16 @@ handleReceiveMessage = function(event) {
 	const message = JSON.parse(event.data);
 	console.info('webrtc message received: ', message);
 	switch(message.type) {
+		case 'location':
+			window.location = message.options.href;
+			// TODO rethink how to follow links without reloading the page.
+			// const link = Object.values(document.getElementsByTagName("a")).find(a => a.href === message.options.href);
+			// if (link) {
+			// 	link.click();
+			// }
+		break;
+		case 'get_links':
+			sendLinks();
 		case 'get_video_state':
 			sendVideoState();
 		break;
@@ -66,10 +77,16 @@ handleReceiveMessage = function(event) {
 				}
 			}
 		break;
+		case 'progress':
+		videos = document.getElementsByTagName("video");
+			if (videos[0]) {
+					videos[0].currentTime = message.options.value;
+				}
+		break;
 		case 'volume':
 		videos = document.getElementsByTagName("video");
 			if (videos[0]) {
-					videos[0].volume = message.value;
+					videos[0].volume = parseFloat(message.options.value);
 				}
 		break;
 		default:
@@ -108,7 +125,7 @@ setupAnswerPC = function() {
 	answerPC.onicecandidate = event => {
 		console.info("answerPC onicecandidate", event.candidate);
 		if (event.candidate) {
-			ws.send(JSON.stringify({ice: event.candidate})); // "ice" is arbitrary
+			ws.send(JSON.stringify({ roomID: my_uuid, ice: event.candidate})); // "ice" is arbitrary
 		} else {
 			// All ICE candidates have been sent
 		}
@@ -118,10 +135,6 @@ setupAnswerPC = function() {
 }
 
 sendMessage = function(message) {
-	message = {
-		uuid,
-		...message,
-	};
 	if (receiveChannel && receiveChannel.readyState !== 'disconnected') {
 		console.info('sending WebRTC message:', message);
 		receiveChannel.send(message);
@@ -155,11 +168,24 @@ sendVideoState = function() {
 	}
 }
 
+sendLinks = function() {
+	const links = Object.values(document.getElementsByTagName("a"))
+		.filter(a => a.href.length > 0 && a.text.length > 0)
+		.map(a => ({ 
+			text: a.text,
+			href: a.href
+		}));
+	sendMessage(JSON.stringify({
+		type: "links",
+		links
+	}));
+}
+
 addVideoDurationchangeListener = function() {
 	videos = document.getElementsByTagName("video");
 	if (videos[0]) {
 		videos[0].addEventListener('timeupdate', function() {
-			console.info('currentTime', videos[0].currentTime);
+			videos = document.getElementsByTagName("video");
 			sendVideoState();
 		});
 	} else {
