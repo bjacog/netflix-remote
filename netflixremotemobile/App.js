@@ -1,5 +1,5 @@
 import React, {Component} from 'react';
-import { AsyncStorage, FlatList, StyleSheet, Slider } from 'react-native';
+import { AsyncStorage, Dimensions, FlatList, StyleSheet, Slider, View } from 'react-native';
 import { RNCamera } from 'react-native-camera';
 import {
 	Body,
@@ -9,13 +9,17 @@ import {
 	Header,
 	Icon,
 	Left,
-	List,
 	ListItem,
 	Right,
 	Text,
 	Title,
+	Item,
+	Input,
 } from 'native-base';
 import { RTCPeerConnection, RTCSessionDescription } from 'react-native-webrtc';
+import moment from 'moment';
+
+const DEVICE_SIZE = Dimensions.get('window');
 
 export default class App extends Component {
 	constructor(props) {
@@ -29,6 +33,7 @@ export default class App extends Component {
 				paused: false,
 			},
 			links: [],
+			query: "",
 			roomID: '3947566788-844051270-586149536-4206037612'//null
 		};
 
@@ -70,7 +75,7 @@ export default class App extends Component {
 	}
 
 	setupWebsocket = () => {
-		this.ws = new WebSocket("ws://10.0.0.14:3210/" + this.state.roomID);
+		this.ws = new WebSocket("ws://192.168.8.103:3210/" + this.state.roomID);
 		this.ws.onopen = () => {
 			console.info('ws opened');
 		}
@@ -138,7 +143,7 @@ export default class App extends Component {
 
 	onIceCandidate = (event) => {
 		console.info("offerPC onicecandidate", event.candidate);
-		if (event.candidate) {
+		if (event.candidate && this.ws.readyState === WebSocket.OPEN) {
 			this.ws.send(JSON.stringify({ roomID: this.state.roomID, ice: event.candidate})); // "ice" is arbitrary
 		} else {
 			// All ICE candidates have been sent
@@ -231,18 +236,40 @@ export default class App extends Component {
 	}
 
 	renderRemote = () => {
+		let volumeIcon = "volume-up";
+		if (this.state.videoState.volume < 0.51) {
+			volumeIcon = "volume-down";
+		}
+		if (this.state.videoState.volume === 0) {
+			volumeIcon = "volume-off";
+		}
+		const durationProgress = moment.duration(this.state.videoState.currentTime, 'seconds');
+		const durationDuration = moment.duration(this.state.videoState.duration, 'seconds');
+		const progress = moment.utc(durationProgress.asMilliseconds());
+		const duration = moment.utc(durationDuration.asMilliseconds());
+		const durationFormat = durationDuration.hours() > 0 ? "HH:mm:ss" : "mm:ss";
 		if (true) {  //this.state.roomID) {
 			return (
-				<Content contentContainerStyle={styles.container}>
-					<Slider
-						// orientation="vertical"
-						onValueChange={this.changeVolume}
-						value={this.state.videoState.volume*100}
-						maximumValue={100}
-						style={{ width: 200 }}
-						minimumTrackTintColor="blue"
-						maximumTrackTintColor="red"
-					/>
+				<Content
+					style={{
+						position: 'absolute',
+						bottom: 0,
+						width: DEVICE_SIZE.width,
+					}}
+					contentContainerStyle={styles.container}
+				>
+					<View style={styles.rowContainer}>
+						<Icon style={styles.icon} type="FontAwesome" name={volumeIcon} />
+						<Slider
+							// orientation="vertical"
+							onValueChange={this.changeVolume}
+							value={this.state.videoState.volume*100}
+							maximumValue={100}
+							style={{ width: 200 }}
+							minimumTrackTintColor="blue"
+							maximumTrackTintColor="red"
+						/>
+					</View>
 					<Button
 						large
 						block
@@ -250,14 +277,18 @@ export default class App extends Component {
 					>
 						<Icon name={this.state.videoState.paused ? 'play' : 'pause'} />
 					</Button>
-					<Slider
-						// onValueChange={this.panProgress}
-						value={this.state.videoState.currentTime}
-						maximumValue={this.state.videoState.duration}
-						style={{ width: 300 }}
-						minimumTrackTintColor="blue"
-						maximumTrackTintColor="red"
-					/>
+					<View style={[styles.rowContainer]}>
+						<Text>{progress.format(durationFormat)}</Text>
+						<Slider
+							// onValueChange={this.panProgress}
+							value={this.state.videoState.currentTime}
+							maximumValue={this.state.videoState.duration}
+							style={{ flex: 1 }}
+							minimumTrackTintColor="blue"
+							maximumTrackTintColor="red"
+						/>
+						<Text>{duration.format(durationFormat)}</Text>
+					</View>
 				</Content>
 			);
 		}
@@ -285,14 +316,37 @@ export default class App extends Component {
 		);
 	}
 
-	renderList = () => {
+	renderButtonLink = ({ item }) => {
 		return(
-		<FlatList
-			style={{ flex: 1 }}
-			data={this.state.links}
-			keyExtractor={(item) => item.href}
-			renderItem={this.renderLink}
-		/>
+			<Button
+				rounded
+				style={{ margin: 2 }}
+				key={item.href}
+				onPress={() => {
+					this.openLink(item.href);
+				}}
+			>
+				<Text>{item.text}</Text>
+			</Button>
+		);
+	}
+
+	renderLists = () => {
+		return(
+		<View style={{ flex: 1}}>
+			<FlatList
+				contentContainerStyle={{ margin: 5 }}
+				horizontal
+				data={this.state.links.filter(link => link.href.indexOf("/watch") === -1)}
+				keyExtractor={(item) => item.href}
+				renderItem={this.renderButtonLink}
+			/>
+			<FlatList
+				data={this.state.links.filter(link => link.href.indexOf("/watch") !== -1)}
+				keyExtractor={(item) => item.href}
+				renderItem={this.renderLink}
+			/>
+		</View>
 		);
 	}
 
@@ -319,8 +373,32 @@ export default class App extends Component {
 					</Button>
 				</Right>
 				</Header>
+				<Header searchBar rounded>
+					<Item>
+						<Icon name="ios-search" />
+						<Input
+							value={this.state.query}
+							onChangeText={(value) => {
+								this.setState({ query: value });
+							}}
+							placeholder="Search" />
+						{this.state.query.length > 0 && <Icon
+							onPress={() => { this.setState({ query: "" }); }}
+							type="FontAwesome"
+							name="times" />}
+					</Item>
+					<Button
+						disabled={this.state.query.length === 0}
+						onPress={() => {
+							this.sendCommand("location", { href: `https://www.netflix.com/search?q=${this.state.query}`}); 
+						}}
+						transparent
+					>
+						<Text>Search</Text>
+					</Button>
+				</Header>
 					{/* {this.renderCamera()} */}
-					{this.renderList()}
+					{this.renderLists()}
 					{this.renderRemote()}
 			</Container>
 		);
@@ -329,11 +407,18 @@ export default class App extends Component {
 
 const styles = StyleSheet.create({
 	container: {
-		flex: 1,
+		// flex: 1,
 		justifyContent: 'center',
 		alignItems: 'center',
 		backgroundColor: '#F5FCFF',
 		padding: 10,
+	},
+	rowContainer: {
+		flexDirection: 'row',
+		alignItems: "center",
+	},
+	rowStretcher: {
+		alignContent: "stretch",
 	},
 	preview: {
 		position: 'absolute',
@@ -344,4 +429,7 @@ const styles = StyleSheet.create({
 		justifyContent: 'flex-end',
 		alignItems: 'center',
 	},
+	icon: {
+		margin: 10,
+	}
 });
