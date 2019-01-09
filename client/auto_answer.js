@@ -169,8 +169,8 @@ sendVideoState = function() {
 }
 
 sendLinks = function() {
-	const links = Object.values(document.getElementsByTagName("a"))
-		.filter(a => a.href.length > 0 && a.text.length > 0)
+	const dupedLinks = (Object.values(document.getElementsByTagName("a")));
+	const links = dupedLinks.filter((a, i) => a.href.length > 0 && a.text.length > 0 && dupedLinks.findIndex(l => l.href === a.href) === i)
 		.map(a => ({ 
 			text: a.text,
 			href: a.href

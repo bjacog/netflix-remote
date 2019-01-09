@@ -11,6 +11,7 @@ import {
 	Left,
 	ListItem,
 	Right,
+	StyleProvider,
 	Text,
 	Title,
 	Item,
@@ -18,6 +19,8 @@ import {
 } from 'native-base';
 import { RTCPeerConnection, RTCSessionDescription } from 'react-native-webrtc';
 import moment from 'moment';
+import getTheme from './native-base-theme/components';
+import customVariables from './theme/variables';
 
 const DEVICE_SIZE = Dimensions.get('window');
 
@@ -32,9 +35,10 @@ export default class App extends Component {
 				currentTime: 0,
 				paused: false,
 			},
+			isLoadingLinks: true,
 			links: [],
 			query: "",
-			roomID: '3947566788-844051270-586149536-4206037612'//null
+			roomID: '1930976237-2274112256-4181358587-3471119227'//null
 		};
 
 		this.webRTCconfiguration = {
@@ -128,7 +132,7 @@ export default class App extends Component {
 		console.info('message received:', message);
 		switch(message.type) {
 			case "links":
-				this.setState({ links: message.links });
+				this.setState({ links: message.links, isLoadingLinks: false });
 			break;
 			case "state":
 				this.setState({
@@ -295,6 +299,7 @@ export default class App extends Component {
 	}
 
 	openLink = (href) => {
+		this.setState({ isLoadingLinks: true });
 		this.sendCommand("location", { href })
 	}
 
@@ -332,16 +337,22 @@ export default class App extends Component {
 	}
 
 	renderLists = () => {
+		const quickLinks = this.state.links.filter(link => link.href.indexOf("/watch") === -1);
+		const defaultLinks = [{
+			text: "Home",
+			href: "https://www.netflix.com"
+		}];
 		return(
 		<View style={{ flex: 1}}>
 			<FlatList
 				contentContainerStyle={{ margin: 5 }}
 				horizontal
-				data={this.state.links.filter(link => link.href.indexOf("/watch") === -1)}
+				data={quickLinks.length > 0 ? quickLinks : defaultLinks}
 				keyExtractor={(item) => item.href}
 				renderItem={this.renderButtonLink}
 			/>
 			<FlatList
+				refreshing={this.state.isLoadingLinks}
 				data={this.state.links.filter(link => link.href.indexOf("/watch") !== -1)}
 				keyExtractor={(item) => item.href}
 				renderItem={this.renderLink}
@@ -352,55 +363,57 @@ export default class App extends Component {
 
 	render() {
 		return (
-			<Container>
-				<Header>
-				<Left>
-					<Button transparent>
-					<Icon type="FontAwesome" name='bars' />
-					</Button>
-				</Left>
-				<Body>
-					<Title>Netflix Remote</Title>
-				</Body>
-				<Right>
-					<Button
-						transparent
-						onPress={() => {
-							this.setState({ roomID: null });
-						}}
-					>
-						<Icon type="FontAwesome" name='qrcode' />
-					</Button>
-				</Right>
-				</Header>
-				<Header searchBar rounded>
-					<Item>
-						<Icon name="ios-search" />
-						<Input
-							value={this.state.query}
-							onChangeText={(value) => {
-								this.setState({ query: value });
+			<StyleProvider  style={getTheme(customVariables)}>
+				<Container>
+					<Header>
+					<Left>
+						<Button transparent>
+						<Icon type="FontAwesome" name='bars' />
+						</Button>
+					</Left>
+					<Body>
+						<Title>Netflix Remote</Title>
+					</Body>
+					<Right>
+						<Button
+							transparent
+							onPress={() => {
+								this.setState({ roomID: null });
 							}}
-							placeholder="Search" />
-						{this.state.query.length > 0 && <Icon
-							onPress={() => { this.setState({ query: "" }); }}
-							type="FontAwesome"
-							name="times" />}
-					</Item>
-					<Button
-						disabled={this.state.query.length === 0}
-						onPress={() => {
-							this.sendCommand("location", { href: `https://www.netflix.com/search?q=${this.state.query}`}); 
-						}}
-						transparent
-					>
-						<Text>Search</Text>
-					</Button>
-				</Header>
-					{/* {this.renderCamera()} */}
-					{this.renderLists()}
-					{this.renderRemote()}
-			</Container>
+						>
+							<Icon type="FontAwesome" name='qrcode' />
+						</Button>
+					</Right>
+					</Header>
+					<Header searchBar rounded>
+						<Item>
+							<Icon name="ios-search" />
+							<Input
+								value={this.state.query}
+								onChangeText={(value) => {
+									this.setState({ query: value });
+								}}
+								placeholder="Search" />
+							{this.state.query.length > 0 && <Icon
+								onPress={() => { this.setState({ query: "" }); }}
+								type="FontAwesome"
+								name="times" />}
+						</Item>
+						<Button
+							disabled={this.state.query.length === 0}
+							onPress={() => {
+								this.sendCommand("location", { href: `https://www.netflix.com/search?q=${this.state.query}`}); 
+							}}
+							transparent
+						>
+							<Text>Search</Text>
+						</Button>
+					</Header>
+						{/* {this.renderCamera()} */}
+						{this.renderLists()}
+						{this.renderRemote()}
+				</Container>
+			</StyleProvider>
 		);
 	}
 }
