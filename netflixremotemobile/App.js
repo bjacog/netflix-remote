@@ -38,7 +38,7 @@ export default class App extends Component {
 			isLoadingLinks: true,
 			links: [],
 			query: "",
-			roomID: '1930976237-2274112256-4181358587-3471119227'//null
+			roomID: '519308032-1911248028-2613558296-819131981'//null
 		};
 
 		this.webRTCconfiguration = {
@@ -79,7 +79,7 @@ export default class App extends Component {
 	}
 
 	setupWebsocket = () => {
-		this.ws = new WebSocket("ws://192.168.8.103:3210/" + this.state.roomID);
+		this.ws = new WebSocket("ws://10.2.1.152:3210/" + this.state.roomID + '/remote');
 		this.ws.onopen = () => {
 			console.info('ws opened');
 		}
@@ -93,6 +93,9 @@ export default class App extends Component {
 				const description = new RTCSessionDescription(message.answer);
 				console.info("received answer:", description);
 				this.offerPC.setRemoteDescription(description);
+			}
+			if (message.type === "offerRequest") {
+				this.createOffer();
 			}
 		}
 	}
@@ -195,6 +198,14 @@ export default class App extends Component {
 		this.sendCommand("toggle_pause_play");
 	}
 
+	toggleMuted = () => {
+		this.sendCommand("toggle_muted");
+	}
+
+	toggleFullscreen = () => {
+		this.sendCommand("toggle_fullscreen");
+	}
+
 	panProgress = (value) => {
 		this.sendCommand("progress", { value });
 	}
@@ -241,11 +252,11 @@ export default class App extends Component {
 
 	renderRemote = () => {
 		let volumeIcon = "volume-up";
+		if (this.state.videoState.muted || this.state.videoState.volume === 0) {
+			volumeIcon = "volume-off";
+		}
 		if (this.state.videoState.volume < 0.51) {
 			volumeIcon = "volume-down";
-		}
-		if (this.state.videoState.volume === 0) {
-			volumeIcon = "volume-off";
 		}
 		const durationProgress = moment.duration(this.state.videoState.currentTime, 'seconds');
 		const durationDuration = moment.duration(this.state.videoState.duration, 'seconds');
@@ -263,11 +274,17 @@ export default class App extends Component {
 					contentContainerStyle={styles.container}
 				>
 					<View style={styles.rowContainer}>
-						<Icon style={styles.icon} type="FontAwesome" name={volumeIcon} />
+						<Button
+							large
+							transparent
+							onPress={this.toggleMuted}
+						>
+							<Icon style={styles.icon} type="FontAwesome" name={volumeIcon} />
+						</Button>
 						<Slider
 							// orientation="vertical"
 							onValueChange={this.changeVolume}
-							value={this.state.videoState.volume*100}
+							value={this.state.videoState.muted ? 0 :  this.state.videoState.volume*100}
 							maximumValue={100}
 							style={{ width: 200 }}
 							minimumTrackTintColor="blue"
@@ -280,6 +297,13 @@ export default class App extends Component {
 						onPress={this.togglePausePlay}
 					>
 						<Icon name={this.state.videoState.paused ? 'play' : 'pause'} />
+					</Button>
+					<Button
+						large
+						transparent
+						onPress={this.toggleFullscreen}
+					>
+						<Icon type="MaterialIcons" name={this.state.videoState.fullscreen ? 'fullscreen_exit' : 'fullscreen'} />
 					</Button>
 					<View style={[styles.rowContainer]}>
 						<Text>{progress.format(durationFormat)}</Text>
@@ -420,7 +444,6 @@ export default class App extends Component {
 
 const styles = StyleSheet.create({
 	container: {
-		// flex: 1,
 		justifyContent: 'center',
 		alignItems: 'center',
 		backgroundColor: '#F5FCFF',

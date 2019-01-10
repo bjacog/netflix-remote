@@ -2,8 +2,8 @@ var answerPC, receiveChannel, videos, ws, my_uuid = null;
 
 // connect to signalling server
 setupWebsocket = function() {
-	console.log("opening ws to ws://localhost:3210/" + my_uuid);
-	ws = new WebSocket("ws://localhost:3210/" + my_uuid);
+	console.log("opening ws to ws://localhost:3210/" + my_uuid + '/window');
+	ws = new WebSocket("ws://localhost:3210/" + my_uuid + '/window');
 	ws.onopen = function() {
 		console.info('ws opened');
 	}
@@ -61,6 +61,26 @@ handleReceiveMessage = function(event) {
 			// if (link) {
 			// 	link.click();
 			// }
+		break;
+		case 'toggle_fullscreen':
+			videos = document.getElementsByTagName("video");
+			if (videos[0]) {
+				if (document.fullscreenElement === null) {
+					videos[0].webkitRequestFullScreen();
+				} else {
+					document.exitFullscreen();
+				}
+			}
+		break;
+		case 'toggle_muted':
+			videos = document.getElementsByTagName("video");
+			if (videos[0]) {
+				if (videos[0].muted) {
+					videos[0].muted = false;
+				} else {
+					videos[0].muted = true;
+				}
+			}
 		break;
 		case 'get_links':
 			sendLinks();
@@ -136,7 +156,6 @@ setupAnswerPC = function() {
 
 sendMessage = function(message) {
 	if (receiveChannel && receiveChannel.readyState !== 'disconnected') {
-		console.info('sending WebRTC message:', message);
 		receiveChannel.send(message);
 	}
 }
@@ -151,7 +170,9 @@ sendVideoState = function() {
 				volume: videos[0].volume,
 				duration: videos[0].duration,
 				currentTime: videos[0].currentTime,
-				paused: videos[0].paused
+				paused: videos[0].paused,
+				muted: videos[0].muted,
+				fullscreen: videos[0].webkitDisplayingFullscreen,
 			}
 		}));
 	} else {

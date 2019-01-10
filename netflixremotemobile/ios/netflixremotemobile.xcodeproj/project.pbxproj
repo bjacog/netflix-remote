@@ -47,6 +47,8 @@
 		7521BDF866584C1CBA4C3CFD /* Feather.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 99A3BA128BC04ABAA1FED10D /* Feather.ttf */; };
 		7637930AD97A4601852511D2 /* MaterialIcons.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 0773E55090114B8B94E5B4B6 /* MaterialIcons.ttf */; };
 		832341BD1AAA6AB300B99B32 /* libRCTText.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 832341B51AAA6A8300B99B32 /* libRCTText.a */; };
+		842F68CF21E788D000B3A58D /* Fabric.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 842F68CD21E788CF00B3A58D /* Fabric.framework */; };
+		842F68D021E788D000B3A58D /* Crashlytics.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 842F68CE21E788D000B3A58D /* Crashlytics.framework */; };
 		845A729721DA10FC00793A73 /* WebRTC.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 845A729621DA10FC00793A73 /* WebRTC.framework */; };
 		845A729821DA118000793A73 /* WebRTC.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 845A729621DA10FC00793A73 /* WebRTC.framework */; };
 		845A729921DA118000793A73 /* WebRTC.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 845A729621DA10FC00793A73 /* WebRTC.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
@@ -412,6 +414,8 @@
 		6B318A6AB5F8482A9A021F55 /* MaterialCommunityIcons.ttf */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 9; includeInIndex = 0; lastKnownFileType = unknown; name = MaterialCommunityIcons.ttf; path = "../node_modules/native-base/Fonts/MaterialCommunityIcons.ttf"; sourceTree = "<group>"; };
 		78C398B01ACF4ADC00677621 /* RCTLinking.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; name = RCTLinking.xcodeproj; path = "../node_modules/react-native/Libraries/LinkingIOS/RCTLinking.xcodeproj"; sourceTree = "<group>"; };
 		832341B01AAA6A8300B99B32 /* RCTText.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; name = RCTText.xcodeproj; path = "../node_modules/react-native/Libraries/Text/RCTText.xcodeproj"; sourceTree = "<group>"; };
+		842F68CD21E788CF00B3A58D /* Fabric.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; path = Fabric.framework; sourceTree = "<group>"; };
+		842F68CE21E788D000B3A58D /* Crashlytics.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; path = Crashlytics.framework; sourceTree = "<group>"; };
 		845A726B21DA10E200793A73 /* RCTWebRTC.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; name = RCTWebRTC.xcodeproj; path = "../node_modules/react-native-webrtc/ios/RCTWebRTC.xcodeproj"; sourceTree = "<group>"; };
 		845A729621DA10FC00793A73 /* WebRTC.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WebRTC.framework; path = "../node_modules/react-native-webrtc/ios/WebRTC.framework"; sourceTree = "<group>"; };
 		845A729B21DA11AC00793A73 /* AVFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AVFoundation.framework; path = System/Library/Frameworks/AVFoundation.framework; sourceTree = SDKROOT; };
@@ -456,6 +460,8 @@
 				845A72AC21DA11F800793A73 /* libc++.tbd in Frameworks */,
 				845A72AA21DA11EC00793A73 /* libc.tbd in Frameworks */,
 				845A72A821DA11E100793A73 /* VideoToolbox.framework in Frameworks */,
+				842F68CF21E788D000B3A58D /* Fabric.framework in Frameworks */,
+				842F68D021E788D000B3A58D /* Crashlytics.framework in Frameworks */,
 				845A72A621DA11D800793A73 /* CoreVideo.framework in Frameworks */,
 				845A72A421DA11D200793A73 /* CoreAudio.framework in Frameworks */,
 				845A72A221DA11C600793A73 /* GLKit.framework in Frameworks */,
@@ -719,6 +725,8 @@
 		840DE2BC21E21131003FEE0E /* Recovered References */ = {
 			isa = PBXGroup;
 			children = (
+				842F68CE21E788D000B3A58D /* Crashlytics.framework */,
+				842F68CD21E788CF00B3A58D /* Fabric.framework */,
 				B09F34646C524F34ACC75CC0 /* libRNCamera.a */,
 			);
 			name = "Recovered References";
@@ -804,6 +812,7 @@
 				13B07F8E1A680F5B00A75B9A /* Resources */,
 				00DD1BFF1BD5951E006B06BC /* Bundle React Native code and images */,
 				845A729A21DA118000793A73 /* Embed Frameworks */,
+				842F68CC21E7888F00B3A58D /* ShellScript */,
 			);
 			buildRules = (
 			);
@@ -1300,7 +1309,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "export NODE_BINARY=node\n../node_modules/react-native/scripts/react-native-xcode.sh";
+			shellScript = "export NODE_BINARY=node\n../node_modules/react-native/scripts/react-native-xcode.sh\n";
 		};
 		2D02E4CB1E0B4B27006451C7 /* Bundle React Native Code And Images */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -1315,6 +1324,23 @@
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "export NODE_BINARY=node\n../node_modules/react-native/scripts/react-native-xcode.sh";
+		};
+		842F68CC21E7888F00B3A58D /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "./Fabric.framework/run 7ef430d468d3bf0cb3e98d1fd582620bb4c863fd 217672491490160690dc535a7cac1aca79bd677485ca8090d97e3cef248637ea\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 
@@ -1446,7 +1472,10 @@
 				DEAD_CODE_STRIPPING = NO;
 				DEVELOPMENT_TEAM = 59QF96YY47;
 				ENABLE_BITCODE = NO;
-				FRAMEWORK_SEARCH_PATHS = "$(SRCROOT)/../node_modules/react-native-webrtc/ios/**";
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(SRCROOT)/../node_modules/react-native-webrtc/ios/**",
+					"$(PROJECT_DIR)",
+				);
 				HEADER_SEARCH_PATHS = (
 					"$(inherited)",
 					"$(SRCROOT)/../node_modules/react-native-camera/ios/**",
@@ -1474,7 +1503,10 @@
 				DEAD_CODE_STRIPPING = NO;
 				DEVELOPMENT_TEAM = 59QF96YY47;
 				ENABLE_BITCODE = NO;
-				FRAMEWORK_SEARCH_PATHS = "$(SRCROOT)/../node_modules/react-native-webrtc/ios/**";
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(SRCROOT)/../node_modules/react-native-webrtc/ios/**",
+					"$(PROJECT_DIR)",
+				);
 				HEADER_SEARCH_PATHS = (
 					"$(inherited)",
 					"$(SRCROOT)/../node_modules/react-native-camera/ios/**",
