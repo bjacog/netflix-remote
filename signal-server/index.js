@@ -1,8 +1,28 @@
 const WebSocket = require('ws');
 var WebsocketServer = require('ws').Server;
 
+// * required for wss
+const https = require('https');
+const fs = require('fs');
+
+const httpsOptions = {
+	key: fs.readFileSync('./certs/privkey1.pem'),
+	cert: fs.readFileSync('./certs/cert1.pem')
+};
+
+httpsServer = https.createServer(httpsOptions);
+// * end of wss required stuff
+
+
 var rooms = [];
-var server = new WebsocketServer({ port: 3210 });
+var server = new WebsocketServer({
+	port: 39390,
+	server: httpsServer,
+	verifyClient: (info) => {
+		success = info.secure === true;
+		return true;
+	},
+});
 
 server.on('connection', function(socket, req) {
 	const aConnectionData = req.url.substring(1).split("/");

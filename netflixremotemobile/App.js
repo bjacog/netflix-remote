@@ -89,7 +89,8 @@ export default class App extends Component {
 	}
 
 	setupWebsocket = () => {
-		this.ws = new WebSocket("ws://10.0.0.14:3210/" + this.state.roomID + '/remote');
+		// this.ws = new WebSocket("ws://ws.chillremote.host:39390/" + this.state.roomID + '/remote');
+		this.ws = new WebSocket("wss://wslocal.chillremote.host:39390/" + this.state.roomID + '/remote');
 		this.ws.onopen = () => {
 			console.info('ws opened');
 		}
