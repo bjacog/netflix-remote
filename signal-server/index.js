@@ -11,12 +11,14 @@ const httpsOptions = {
 };
 
 httpsServer = https.createServer(httpsOptions);
+httpsServer.listen(39390);
 // * end of wss required stuff
 
 
 var rooms = [];
 var server = new WebsocketServer({
-	port: 39390,
+	// port: 39390,
+	// port: 443,
 	server: httpsServer,
 	verifyClient: (info) => {
 		success = info.secure === true;
@@ -47,10 +49,14 @@ server.on('connection', function(socket, req) {
 			console.log(`asking for offers in ${roomID}`);
 			rooms[roomIndex].clients.forEach(function(client) {
 				if(client === socket) {
+					if (client.readyState === WebSocket.OPEN) {
+						client.send(JSON.stringify({ type: "get_links" }));
+					}
 					return;
 				}
 				if (client.readyState === WebSocket.OPEN) {
 					client.send(JSON.stringify({ type: "offerRequest" }));
+					client.send(JSON.stringify({ type: "get_links" }));
 				}
 			});
 		}
@@ -61,6 +67,7 @@ server.on('connection', function(socket, req) {
 		const aMessage = JSON.parse(msg);
 		// send the message to the correct room
 		if (aMessage.roomID) {
+			console.log('message for \n', aMessage.roomID, '\n', aMessage);
 			console.info("message for room:", aMessage.roomID, aMessage.type);
 			roomIndex = rooms.findIndex(r => r.id === roomID);
 			console.log(`found ${roomID} at index ${roomIndex}`);

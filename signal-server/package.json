@@ -4,6 +4,7 @@
   "description": "Handshake server for chillremote",
   "main": "index.js",
   "dependencies": {
+    "fs": "0.0.1-security",
     "ws": "^6.1.2"
   },
   "devDependencies": {},

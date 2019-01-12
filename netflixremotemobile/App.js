@@ -39,9 +39,13 @@ export default class App extends Component {
 				paused: false,
 			},
 			isLoadingLinks: true,
-			links: [],
+			links: [{
+				href: "https://www.netflix.com",
+				text: "Home",
+			}],
 			query: "",
-			roomID: '519308032-1911248028-2613558296-819131981'//null
+			// roomID: '910393112-3300592093-2973100104-2838919298'//null
+			roomID: '',
 		};
 
 		this.webRTCconfiguration = {
@@ -53,21 +57,21 @@ export default class App extends Component {
 
 	async componentWillMount() {
 		// hack to set roomID
-		await AsyncStorage.setItem('roomID', this.state.roomID);
+		// await AsyncStorage.setItem('roomID', this.state.roomID);
 		const roomID = await AsyncStorage.getItem('roomID');
-		console.info('roomID', roomID);
 		if (roomID) {
 			this.setState({ roomID }, () => {
-				// backhaul over websocket
-				this.setupWebsocket();
-				// webrtc
-				this.setupWebRTC();
+				console.info('roomID', roomID);
+				this.setState({ roomID }, () => {
+					// backhaul over websocket
+					this.setupWebsocket();
+				});
 			});
 		}
 	}
 
 	// componentDidMount() {
-	// 	if (this.state.roomID) {
+	// 	if (this.state.roomID.length > 0) {
 	// 		console.info('componentDidMount', this.offerPC.iceConnectionState);
 	// 		if (this.offerPC.iceConnectionState !== 'connected') {
 	// 			this.createOffer();
@@ -89,10 +93,12 @@ export default class App extends Component {
 	}
 
 	setupWebsocket = () => {
-		// this.ws = new WebSocket("ws://ws.chillremote.host:39390/" + this.state.roomID + '/remote');
-		this.ws = new WebSocket("wss://wslocal.chillremote.host:39390/" + this.state.roomID + '/remote');
+		console.log('opening websocket to ', "wss://ws.chillremote.host:39390/" + this.state.roomID + '/remote');
+		this.ws = new WebSocket("wss://ws.chillremote.host:39390/" + this.state.roomID + '/remote');
+		// this.ws = new WebSocket("wss://wslocal.chillremote.host:39390/" + this.state.roomID + '/remote');
 		this.ws.onopen = () => {
 			console.info('ws opened');
+			this.setupWebRTC();
 		}
 		this.ws.onclose = () => {
 			console.info('ws closed');
@@ -112,6 +118,7 @@ export default class App extends Component {
 	}
 
 	setupWebRTC = () => {
+		this.offerPC = null;
 		console.info('webrtc config:', this.webRTCconfiguration);
 		this.offerPC = new RTCPeerConnection(this.webRTCconfiguration);
 		this.offerPC.onicecandidate = this.onIceCandidate;
@@ -133,6 +140,14 @@ export default class App extends Component {
 
 	handleSendChannelStatusClosedChange = (e) => {
 		console.info('channel status change:', e);
+	}
+
+	sendWsMessage = (message) => {
+		if (this.ws.readyState === WebSocket.OPEN) {
+			this.ws.send(JSON.stringify(message));
+		} else {
+			console.log('not sending message because ', this.ws.readyState, ' is not open(', WebSocket.OPEN, ')');
+		}
 	}
 
 	sendMessage = (message) => {
@@ -161,8 +176,8 @@ export default class App extends Component {
 
 	onIceCandidate = (event) => {
 		console.info("offerPC onicecandidate", event.candidate);
-		if (event.candidate && this.ws.readyState === WebSocket.OPEN) {
-			this.ws.send(JSON.stringify({ roomID: this.state.roomID, ice: event.candidate})); // "ice" is arbitrary
+		if (event.candidate) {
+			this.sendWsMessage({ roomID: this.state.roomID, ice: event.candidate}); // "ice" is arbitrary
 		} else {
 			// All ICE candidates have been sent
 		}
@@ -173,7 +188,7 @@ export default class App extends Component {
 			const description = new RTCSessionDescription(desc);
 			this.offerPC.setLocalDescription(description, () => {
 				console.info('sending offer:', this.offerPC.localDescription);
-				this.ws.send(JSON.stringify({  roomID: this.state.roomID, offer: this.offerPC.localDescription }))
+				this.sendWsMessage({  roomID: this.state.roomID, offer: this.offerPC.localDescription });
 			}, (error) => {
 				console.info(error);
 			})
@@ -192,11 +207,12 @@ export default class App extends Component {
 				this.ws.close();
 			break;
 			case 'disconnected':
-				this.setupWebsocket();
-				this.setupWebRTC();
+				this.setupWebsocket()
 				// start re-sending offers every 5 seconds.
 				this.offerTO = setInterval(() => {
-					this.createOffer();
+					if (this.ws.readyState === WebSocket.OPEN) {
+						this.createOffer();
+					}
 				}, 5000);
 			break;
 			default:
@@ -237,20 +253,18 @@ export default class App extends Component {
 	}
 
 	onBarCodeRead = async ({ data }) => {
-		this.logCustom("join_room");
 		await AsyncStorage.setItem('roomID', data);
 		this.setState({ roomID: data }, () => {
+			this.logCustom("join_room", { roomID: data });
 			// backhaul over websocket
-			this.setupWebsocket();
-			// webrtc
-			this.setupWebRTC();
+			this.setupWebsocket()
 		});
 	}
 
 	renderCamera = () => {
 		if (!this.state.roomID) {
 			return (
-				<Content contentContainerStyle={styles.container}>
+				<Content contentContainerStyle={styles.camera}>
 					<RNCamera
 						ref={ref => {
 							this.camera = ref;
@@ -280,7 +294,7 @@ export default class App extends Component {
 		const progress = moment.utc(durationProgress.asMilliseconds());
 		const duration = moment.utc(durationDuration.asMilliseconds());
 		const durationFormat = durationDuration.hours() > 0 ? "HH:mm:ss" : "mm:ss";
-		if (this.state.roomID) {
+		if (this.state.roomID.length > 0) {
 			return (
 				<Content
 					style={{
@@ -378,6 +392,7 @@ export default class App extends Component {
 	}
 
 	renderLists = () => {
+		if (!this.state.roomID) return null;
 		const quickLinks = this.state.links.filter(link => link.href.indexOf("/watch") === -1);
 		const defaultLinks = [{
 			text: "Home",
@@ -419,14 +434,17 @@ export default class App extends Component {
 						<Button
 							transparent
 							onPress={() => {
-								this.setState({ roomID: null });
+								this.setState({ roomID: '' });
 							}}
 						>
 							<Icon type="FontAwesome" name='qrcode' />
 						</Button>
 					</Right>
 					</Header>
-					<Content contentContainerStyle={[styles.rowContainer]}>
+					<Header
+						searchBar
+						rounded
+					>
 						<Item>
 							<Icon name="ios-search" />
 							<Input
@@ -452,8 +470,8 @@ export default class App extends Component {
 						>
 							<Text>Search</Text>
 						</Button>
-					</Content>
-						{/* {this.renderCamera()} */}
+					</Header>
+						{this.renderCamera()}
 						{this.renderLists()}
 						{this.renderRemote()}
 				</Container>
@@ -487,5 +505,12 @@ const styles = StyleSheet.create({
 	},
 	icon: {
 		margin: 10,
-	}
+	},
+	camera: {
+		position: 'absolute',
+		top: 0,
+		bottom: 0,
+		left: 0,
+		right: 0,
+	},
 });

@@ -2,10 +2,10 @@ var answerPC, receiveChannel, videos, ws, my_uuid = null;
 
 // connect to signalling server
 setupWebsocket = function() {
-	// console.log("opening ws to wss://ws.chillremote.host:39390/" + my_uuid + '/window');
-	console.log("opening ws to wss://wslocal.chillremote.host:39390/" + my_uuid + '/window');
-	// ws = new WebSocket("wss://ws.chillremote.host:39390/" + my_uuid + '/window');
-	ws = new WebSocket("wss://wslocal.chillremote.host:39390/" + my_uuid + '/window');
+	console.log("opening ws to wss://ws.chillremote.host:39390/" + my_uuid + '/window');
+	ws = new WebSocket("wss://ws.chillremote.host:39390/" + my_uuid + '/window');
+	// console.log("opening ws to wss://wslocal.chillremote.host:443/" + my_uuid + '/window');
+	// ws = new WebSocket("wss://wslocal.chillremote.host:443/" + my_uuid + '/window');
 	ws.onopen = function() {
 		console.info('ws opened');
 	}
@@ -157,7 +157,7 @@ setupAnswerPC = function() {
 }
 
 sendMessage = function(message) {
-	if (receiveChannel && receiveChannel.readyState !== 'disconnected') {
+	if (receiveChannel && receiveChannel.readyState === 'open') {
 		receiveChannel.send(message);
 	}
 }
