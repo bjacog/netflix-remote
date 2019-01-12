@@ -12,6 +12,7 @@
     "react": "16.6.3",
     "react-native": "0.57.8",
     "react-native-camera": "^1.6.4",
+    "react-native-fabric": "^0.5.2",
     "react-native-webrtc": "^1.67.1"
   },
   "devDependencies": {

@@ -19,6 +19,9 @@ import {
 } from 'native-base';
 import { RTCPeerConnection, RTCSessionDescription } from 'react-native-webrtc';
 import moment from 'moment';
+var Fabric = require('react-native-fabric');
+var { Answers } = Fabric;
+
 import getTheme from './native-base-theme/components';
 import customVariables from './theme/variables';
 
@@ -78,8 +81,15 @@ export default class App extends Component {
 		}
 	}
 
+	logCustom = (key, data) => {
+		Answers.logCustom(key, {
+			roomID: this.state.roomID,
+			...data,
+		});
+	}
+
 	setupWebsocket = () => {
-		this.ws = new WebSocket("ws://10.2.1.152:3210/" + this.state.roomID + '/remote');
+		this.ws = new WebSocket("ws://10.0.0.14:3210/" + this.state.roomID + '/remote');
 		this.ws.onopen = () => {
 			console.info('ws opened');
 		}
@@ -195,22 +205,27 @@ export default class App extends Component {
 	}
 
 	togglePausePlay = () => {
+		this.logCustom("toggle_pause_play", { videoState: this.state.videoState });
 		this.sendCommand("toggle_pause_play");
 	}
 
 	toggleMuted = () => {
+		this.logCustom("toggle_muted", { videoState: this.state.videoState });
 		this.sendCommand("toggle_muted");
 	}
 
 	toggleFullscreen = () => {
+		this.logCustom("toggle_fullscreen", { videoState: this.state.videoState });
 		this.sendCommand("toggle_fullscreen");
 	}
 
 	panProgress = (value) => {
+		this.logCustom("progress", { videoState: this.state.videoState, value });
 		this.sendCommand("progress", { value });
 	}
 
 	changeVolume = (value) => {
+		this.logCustom("volume", { videoState: this.state.videoState, value });
 		this.sendCommand("volume", { value: value / 100 });
 	}
 
@@ -221,6 +236,7 @@ export default class App extends Component {
 	}
 
 	onBarCodeRead = async ({ data }) => {
+		this.logCustom("join_room");
 		await AsyncStorage.setItem('roomID', data);
 		this.setState({ roomID: data }, () => {
 			// backhaul over websocket
@@ -263,7 +279,7 @@ export default class App extends Component {
 		const progress = moment.utc(durationProgress.asMilliseconds());
 		const duration = moment.utc(durationDuration.asMilliseconds());
 		const durationFormat = durationDuration.hours() > 0 ? "HH:mm:ss" : "mm:ss";
-		if (true) {  //this.state.roomID) {
+		if (this.state.roomID) {
 			return (
 				<Content
 					style={{
@@ -409,13 +425,16 @@ export default class App extends Component {
 						</Button>
 					</Right>
 					</Header>
-					<Header searchBar rounded>
+					<Content contentContainerStyle={[styles.rowContainer]}>
 						<Item>
 							<Icon name="ios-search" />
 							<Input
 								value={this.state.query}
 								onChangeText={(value) => {
 									this.setState({ query: value });
+								}}
+								onSubmitEditing={() => {
+									this.sendCommand("location", { href: `https://www.netflix.com/search?q=${this.state.query}`}); 
 								}}
 								placeholder="Search" />
 							{this.state.query.length > 0 && <Icon
@@ -432,7 +451,7 @@ export default class App extends Component {
 						>
 							<Text>Search</Text>
 						</Button>
-					</Header>
+					</Content>
 						{/* {this.renderCamera()} */}
 						{this.renderLists()}
 						{this.renderRemote()}
