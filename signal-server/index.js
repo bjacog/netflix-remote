@@ -7,7 +7,8 @@ const fs = require('fs');
 
 const httpsOptions = {
 	key: fs.readFileSync('./certs/privkey1.pem'),
-	cert: fs.readFileSync('./certs/cert1.pem')
+	cert: fs.readFileSync('./certs/cert1.pem'),
+	ca: fs.readFileSync('./certs/fullchain1.pem')
 };
 
 httpsServer = https.createServer(httpsOptions);
