@@ -2,6 +2,7 @@ import React, {Component} from 'react';
 import { AsyncStorage, Dimensions, FlatList, StyleSheet, Slider, View } from 'react-native';
 import { RNCamera } from 'react-native-camera';
 import {
+	Badge,
 	Body,
 	Button,
 	Container,
@@ -45,8 +46,8 @@ export default class App extends Component {
 				text: "Home",
 			}],
 			query: "",
-			// roomID: '910393112-3300592093-2973100104-2838919298'//null
-			roomID: '',
+			roomID: '1687664928-2159031602-4033197830-2959022755'//null
+			// roomID: '',
 		};
 
 		this.webRTCconfiguration = {
@@ -58,7 +59,7 @@ export default class App extends Component {
 
 	async componentWillMount() {
 		// hack to set roomID
-		// await AsyncStorage.setItem('roomID', this.state.roomID);
+		await AsyncStorage.setItem('roomID', this.state.roomID);
 		const roomID = await AsyncStorage.getItem('roomID');
 		if (roomID) {
 			this.setState({ roomID }, () => {
@@ -419,19 +420,32 @@ export default class App extends Component {
 	}
 
 	render() {
+		// TODO continue here
+		const connectionStyle = {
+			danger: !this.offerPC && !this.ws,
+			warning: this.offerPC !== null || this.ws !== null,
+			info: this.ws !== null && typeof this.ws.readyState !== 'undefined' &&  this.ws.readyState === WebSocket.OPEN,
+			primary: (this.offerPC && this.offerPC.iceConnectionState === 'completed') && (this.ws && this.ws.readyState === WebSocket.CLOSED),
+		};
+		if (this.offerPC) {
+			console.info('connectionState', connectionStyle);
+		}
 		return (
 			<StyleProvider  style={getTheme(customVariables)}>
 				<Container>
 					<Header>
-					<Left>
-						<Button transparent>
-						<Icon type="FontAwesome" name='bars' />
-						</Button>
-					</Left>
 					<Body>
-						<Title>Netflix Remote</Title>
+						<Title>Chill Remote</Title>
 					</Body>
 					<Right>
+					<Badge
+						{...connectionStyle}
+						// danger={(this.offerPC && this.offerPC.iceConnectionState !== 'completed') && (this.ws && this.ws.readyState === WebSocket.CLOSED)}
+						// info={this.ws && this.ws.readyState === WebSocket.OPEN}
+						// primary={(this.offerPC && this.offerPC.iceConnectionState === 'completed') && (this.ws && this.ws.readyState === WebSocket.CLOSED)}
+					>
+						<Icon name="link" style={{ fontSize: 15, color: "#fff", lineHeight: 20 }}/>
+					</Badge>
 						<Button
 							transparent
 							onPress={() => {
