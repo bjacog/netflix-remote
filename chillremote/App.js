@@ -12,6 +12,7 @@ import {
 	Left,
 	ListItem,
 	Right,
+	Spinner,
 	StyleProvider,
 	Text,
 	Title,
@@ -29,6 +30,16 @@ import customVariables from './theme/variables';
 const DEVICE_SIZE = Dimensions.get('window');
 const WS_SERVER = "wss://ws.chillremote.host:39390";
 
+const iceConnectionStates = {
+	NEW: 'new',
+	CHECKING: 'checking',
+	CONNECTING: 'connecting',
+	CONNECTED: 'connected',
+	COMPLETED: 'completed',
+	DISCONNECTED: 'disconnected',
+	CLOSED: 'closed',
+}
+
 export default class App extends Component {
 	constructor(props) {
 		super(props);
@@ -40,6 +51,8 @@ export default class App extends Component {
 				currentTime: 0,
 				paused: false,
 			},
+			wsConnectionState: WebSocket.CLOSED,
+			webrtcConnectionState: iceConnectionStates.CLOSED,
 			isLoadingLinks: true,
 			links: [{
 				href: "https://www.netflix.com",
@@ -99,10 +112,12 @@ export default class App extends Component {
 		this.ws = new WebSocket(`${WS_SERVER}/${this.state.roomID}/remote`);
 		this.ws.onopen = () => {
 			console.info('ws opened');
+			this.setState({ wsConnectionState: this.ws.readyState });
 			this.setupWebRTC();
 		}
 		this.ws.onclose = (event) => {
 			console.info('ws closed', event);
+			this.setState({ wsConnectionState: this.ws.readyState });
 		}
 		this.ws.onmessage = (event) => {
 			const message = JSON.parse(event.data);
@@ -201,6 +216,7 @@ export default class App extends Component {
 
 	iceConnectionStateChange = (event) => {
 		console.info('answerPC iceConnectionStateChange:', this.offerPC.iceConnectionState, event);
+		this.setState({ webrtcConnectionState: this.offerPC.iceConnectionState });
 		switch(this.offerPC.iceConnectionState) {
 			case 'connected':
 				if (this.offerTO) {
@@ -284,6 +300,8 @@ export default class App extends Component {
 	}
 
 	renderRemote = () => {
+		const connectionStyle = this.getConnectionState();
+		if (!connectionStyle.success) return null;
 		let volumeIcon = "volume-up";
 		if (this.state.videoState.muted || this.state.videoState.volume === 0) {
 			volumeIcon = "volume-off";
@@ -331,13 +349,6 @@ export default class App extends Component {
 					>
 						<Icon name={this.state.videoState.paused ? 'play' : 'pause'} />
 					</Button>
-					<Button
-						large
-						transparent
-						onPress={this.toggleFullscreen}
-					>
-						<Icon type="MaterialIcons" name={this.state.videoState.fullscreen ? 'fullscreen_exit' : 'fullscreen'} />
-					</Button>
 					<View style={[styles.rowContainer]}>
 						<Text>{progress.format(durationFormat)}</Text>
 						<Slider
@@ -358,6 +369,16 @@ export default class App extends Component {
 	openLink = (href) => {
 		this.setState({ isLoadingLinks: true });
 		this.sendCommand("location", { href })
+	}
+
+	getConnectionState = () => {
+		const { wsConnectionState, webrtcConnectionState } = this.state;
+		return {
+			danger: webrtcConnectionState === iceConnectionStates.CLOSED && wsConnectionState === WebSocket.CLOSED,
+			warning: webrtcConnectionState === iceConnectionStates.CONNECTING || wsConnectionState === WebSocket.CONNECTING,
+			info: webrtcConnectionState === iceConnectionStates.CONNECTED || wsConnectionState === WebSocket.CONNECTED || wsConnectionState === WebSocket.OPEN,
+			success: webrtcConnectionState === iceConnectionStates.COMPLETED && wsConnectionState === WebSocket.CLOSED,
+		};
 	}
 
 	renderLink = ({ item }) => {
@@ -394,7 +415,8 @@ export default class App extends Component {
 	}
 
 	renderLists = () => {
-		if (!this.state.roomID) return null;
+		const connectionStyle = this.getConnectionState();
+		if (!this.state.roomID || !connectionStyle.success) return (<Spinner />);
 		const quickLinks = this.state.links.filter(link => link.href.indexOf("/watch") === -1);
 		const defaultLinks = [{
 			text: "Home",
@@ -419,17 +441,20 @@ export default class App extends Component {
 		);
 	}
 
+	renderConnectionBadge = () => {
+		const connectionStyle = this.getConnectionState();
+		const connectionIcon = connectionStyle.success ? "link" : "unlink";
+		return (
+			<Badge
+				{...connectionStyle}
+				style={{ marginTop: 8 }}
+			>
+				<Icon type="FontAwesome" name={connectionIcon} style={{ fontSize: 15, color: "#fff", lineHeight: 20 }}/>
+			</Badge>
+		);
+	}
+
 	render() {
-		// TODO continue here
-		const connectionStyle = {
-			danger: !this.offerPC && !this.ws,
-			warning: this.offerPC !== null || this.ws !== null,
-			info: this.ws !== null && typeof this.ws.readyState !== 'undefined' &&  this.ws.readyState === WebSocket.OPEN,
-			primary: (this.offerPC && this.offerPC.iceConnectionState === 'completed') && (this.ws && this.ws.readyState === WebSocket.CLOSED),
-		};
-		if (this.offerPC) {
-			console.info('connectionState', connectionStyle);
-		}
 		return (
 			<StyleProvider  style={getTheme(customVariables)}>
 				<Container>
@@ -438,14 +463,7 @@ export default class App extends Component {
 						<Title>Chill Remote</Title>
 					</Body>
 					<Right>
-					<Badge
-						{...connectionStyle}
-						// danger={(this.offerPC && this.offerPC.iceConnectionState !== 'completed') && (this.ws && this.ws.readyState === WebSocket.CLOSED)}
-						// info={this.ws && this.ws.readyState === WebSocket.OPEN}
-						// primary={(this.offerPC && this.offerPC.iceConnectionState === 'completed') && (this.ws && this.ws.readyState === WebSocket.CLOSED)}
-					>
-						<Icon name="link" style={{ fontSize: 15, color: "#fff", lineHeight: 20 }}/>
-					</Badge>
+					{this.renderConnectionBadge()}
 						<Button
 							transparent
 							onPress={() => {
