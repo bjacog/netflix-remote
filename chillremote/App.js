@@ -7,6 +7,7 @@ import {
 	Button,
 	Container,
 	Content,
+	Form,
 	Header,
 	Icon,
 	Left,
@@ -21,6 +22,7 @@ import {
 } from 'native-base';
 import { RTCPeerConnection, RTCSessionDescription } from 'react-native-webrtc';
 import moment from 'moment';
+import * as Progress  from 'react-native-progress';
 var Fabric = require('react-native-fabric');
 var { Answers } = Fabric;
 
@@ -59,8 +61,8 @@ export default class App extends Component {
 				text: "Home",
 			}],
 			query: "",
-			roomID: '1687664928-2159031602-4033197830-2959022755'//null
-			// roomID: '',
+			// roomID: '2658894002-1136478773-1711705163-2278332068'//null
+			roomID: '',
 		};
 
 		this.webRTCconfiguration = {
@@ -72,7 +74,7 @@ export default class App extends Component {
 
 	async componentWillMount() {
 		// hack to set roomID
-		await AsyncStorage.setItem('roomID', this.state.roomID);
+		// await AsyncStorage.setItem('roomID', this.state.roomID);
 		const roomID = await AsyncStorage.getItem('roomID');
 		if (roomID) {
 			this.setState({ roomID }, () => {
@@ -175,7 +177,7 @@ export default class App extends Component {
 
 	handleReceiveMessage = (event) => {
 		const message = JSON.parse(event.data);
-		console.info('message received:', message);
+		// console.info('message received:', message);
 		switch(message.type) {
 			case "links":
 				this.setState({ links: message.links, isLoadingLinks: false });
@@ -282,7 +284,9 @@ export default class App extends Component {
 	renderCamera = () => {
 		if (!this.state.roomID) {
 			return (
-				<Content contentContainerStyle={styles.camera}>
+				<View
+					style={styles.camera}
+				>
 					<RNCamera
 						ref={ref => {
 							this.camera = ref;
@@ -294,7 +298,7 @@ export default class App extends Component {
 						permissionDialogMessage={'We need your permission to use your camera to scan the room QR Code'}
 						onBarCodeRead={this.onBarCodeRead}
 					/>
-				</Content>
+				</View>
 			);
 		}
 	}
@@ -303,26 +307,26 @@ export default class App extends Component {
 		const connectionStyle = this.getConnectionState();
 		if (!connectionStyle.success) return null;
 		let volumeIcon = "volume-up";
-		if (this.state.videoState.muted || this.state.videoState.volume === 0) {
-			volumeIcon = "volume-off";
-		}
 		if (this.state.videoState.volume < 0.51) {
 			volumeIcon = "volume-down";
+		}
+		if (this.state.videoState.muted || this.state.videoState.volume === 0) {
+			volumeIcon = "volume-off";
 		}
 		const durationProgress = moment.duration(this.state.videoState.currentTime, 'seconds');
 		const durationDuration = moment.duration(this.state.videoState.duration, 'seconds');
 		const progress = moment.utc(durationProgress.asMilliseconds());
 		const duration = moment.utc(durationDuration.asMilliseconds());
 		const durationFormat = durationDuration.hours() > 0 ? "HH:mm:ss" : "mm:ss";
-		if (this.state.roomID.length > 0) {
+		if (this.state.roomID.length > 0 || durationDuration !== 0) {
 			return (
-				<Content
+				<View
 					style={{
+						...styles.container,
 						position: 'absolute',
 						bottom: 0,
 						width: DEVICE_SIZE.width,
 					}}
-					contentContainerStyle={styles.container}
 				>
 					<View style={styles.rowContainer}>
 						<Button
@@ -351,17 +355,13 @@ export default class App extends Component {
 					</Button>
 					<View style={[styles.rowContainer]}>
 						<Text>{progress.format(durationFormat)}</Text>
-						<Slider
-							// onValueChange={this.panProgress}
-							value={this.state.videoState.currentTime}
-							maximumValue={this.state.videoState.duration}
-							style={{ flex: 1 }}
-							minimumTrackTintColor="blue"
-							maximumTrackTintColor="red"
+						<Progress.Bar
+							progress={durationDuration > 0 ? durationProgress/durationDuration : 0}
+							style={{ marginHorizontal: 5 }}
 						/>
 						<Text>{duration.format(durationFormat)}</Text>
 					</View>
-				</Content>
+				</View>
 			);
 		}
 	}
@@ -423,7 +423,7 @@ export default class App extends Component {
 			href: "https://www.netflix.com"
 		}];
 		return(
-		<View style={{ flex: 1}}>
+		<View style={styles.listContainer}>
 			<FlatList
 				contentContainerStyle={{ margin: 5 }}
 				horizontal
@@ -454,10 +454,69 @@ export default class App extends Component {
 		);
 	}
 
+	renderSearchBar = () => {
+		const connectionStyle = this.getConnectionState();
+		if (!connectionStyle.success) return null;
+		const { query } = this.state;
+		return (
+			<View>
+						<Form style={styles.searchBarForm}>
+							<Item
+								style={{ flex: 3, borderColor: 'transparent' }}
+								
+							>
+								<Icon
+									style={{
+										color: customVariables.brandPrimary,
+									}}
+									name="ios-search"
+								/>
+								<Input
+									underlineColorAndroid={'transparent'}
+									value={query}
+									onChangeText={(value) => {
+										this.setState({ query: value });
+									}}
+									color={'white'}
+									onSubmitEditing={() => {
+										this.sendCommand("location", { href: `https://www.netflix.com/search?q=${query}`}); 
+									}}
+									placeholder="Search"
+									style={{
+										color: customVariables.brandLight,
+									}}
+								/>
+								{query.length > 0 && <Icon
+									style={{
+										color: customVariables.brandPrimary,
+									}}
+									onPress={() => { this.setState({ query: "" }); }}
+									type="FontAwesome"
+									name="times"
+								/>}
+							</Item>
+							{query.length > 0 && <Button
+								style={{
+									alignSelf: 'center',
+									flex: 1,
+								}}
+								disabled={query.length === 0}
+								onPress={() => {
+									this.sendCommand("location", { href: `https://www.netflix.com/search?q=${this.state.query}`}); 
+								}}
+								transparent
+							>
+								<Text>Search</Text>
+							</Button>}
+						</Form>
+					</View>
+		);
+	}
+
 	render() {
 		return (
 			<StyleProvider  style={getTheme(customVariables)}>
-				<Container>
+				<Container style={{ backgroundColor: customVariables.brandDark }}>
 					<Header>
 					<Body>
 						<Title>Chill Remote</Title>
@@ -474,36 +533,7 @@ export default class App extends Component {
 						</Button>
 					</Right>
 					</Header>
-					<Header
-						searchBar
-						rounded
-					>
-						<Item>
-							<Icon name="ios-search" />
-							<Input
-								value={this.state.query}
-								onChangeText={(value) => {
-									this.setState({ query: value });
-								}}
-								onSubmitEditing={() => {
-									this.sendCommand("location", { href: `https://www.netflix.com/search?q=${this.state.query}`}); 
-								}}
-								placeholder="Search" />
-							{this.state.query.length > 0 && <Icon
-								onPress={() => { this.setState({ query: "" }); }}
-								type="FontAwesome"
-								name="times" />}
-						</Item>
-						<Button
-							disabled={this.state.query.length === 0}
-							onPress={() => {
-								this.sendCommand("location", { href: `https://www.netflix.com/search?q=${this.state.query}`}); 
-							}}
-							transparent
-						>
-							<Text>Search</Text>
-						</Button>
-					</Header>
+						{this.renderSearchBar()}
 						{this.renderCamera()}
 						{this.renderLists()}
 						{this.renderRemote()}
@@ -517,8 +547,18 @@ const styles = StyleSheet.create({
 	container: {
 		justifyContent: 'center',
 		alignItems: 'center',
-		backgroundColor: '#F5FCFF',
+		backgroundColor: '#000000',
 		padding: 10,
+	},
+	listContainer: {
+		flex: 1,
+		backgroundColor: '#000000',
+		marginBottom: 160,
+	},
+	searchBarForm: {
+		flexDirection: 'row',
+		justifyContent: 'center',
+		alignItems: 'stretch',
 	},
 	rowContainer: {
 		flexDirection: 'row',
