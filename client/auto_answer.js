@@ -8,6 +8,11 @@ setupWebsocket = function() {
 	// ws = new WebSocket("wss://wslocal.chillremote.host:443/" + my_uuid + '/window');
 	ws.onopen = function() {
 		console.info('ws opened');
+		// send the state of the webpage
+		sendVideoState();
+		sendLinks();
+		// set video onchange handler
+		addVideoDurationchangeListener();
 	}
 	ws.onclose = function() {
 		console.info('ws closed');
@@ -28,8 +33,11 @@ setupWebsocket = function() {
 				.then(answer => answerPC.setLocalDescription(answer))
 				.then(() => {
 					console.info("sending answer:", answerPC.localDescription);
-					ws.send(JSON.stringify({ roomID: my_uuid, answer: answerPC.localDescription }));
+					sendMessage(JSON.stringify({ roomID: my_uuid, answer: answerPC.localDescription }));
 				});
+		} else {
+			// fallback to use ws for all coms.
+			handleReceiveMessage(event);
 		}
 	}
 }
@@ -54,7 +62,7 @@ handleReceiveChannelClosedStatusChange = function(event) {
 
 handleReceiveMessage = function(event) {
 	const message = JSON.parse(event.data);
-	console.info('webrtc message received: ', message);
+	console.info('message received: ', message);
 	switch(message.type) {
 		case 'location':
 			window.location = message.options.href;
@@ -147,7 +155,7 @@ setupAnswerPC = function() {
 	answerPC.onicecandidate = event => {
 		console.info("answerPC onicecandidate", event.candidate);
 		if (event.candidate) {
-			ws.send(JSON.stringify({ roomID: my_uuid, ice: event.candidate})); // "ice" is arbitrary
+			sendMessage(JSON.stringify({ roomID: my_uuid, ice: event.candidate})); // "ice" is arbitrary
 		} else {
 			// All ICE candidates have been sent
 		}
@@ -157,6 +165,12 @@ setupAnswerPC = function() {
 }
 
 sendMessage = function(message) {
+	// ws used for comms
+	if (ws.readyState === WebSocket.OPEN) {
+		ws.send(message);
+		return;
+	}
+	// webrtc used for comms
 	if (receiveChannel && receiveChannel.readyState === 'open') {
 		receiveChannel.send(message);
 	}
@@ -194,7 +208,7 @@ sendVideoState = function() {
 sendLinks = function() {
 	const dupedLinks = (Object.values(document.getElementsByTagName("a")));
 	const links = dupedLinks.filter((a, i) => a.href.length > 0 && a.text.length > 0 && dupedLinks.findIndex(l => l.href === a.href) === i)
-		.map(a => ({ 
+		.map(a => ({
 			text: a.text,
 			href: a.href
 		}));
@@ -215,7 +229,7 @@ addVideoDurationchangeListener = function() {
 		// retry in 500ms
 		setTimeout(() => {
 			addVideoDurationchangeListener();
-		}, 500);
+		}, 800);
 	}
 }
 

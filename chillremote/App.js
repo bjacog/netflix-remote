@@ -1,5 +1,13 @@
 import React, {Component} from 'react';
-import { AsyncStorage, Dimensions, FlatList, StyleSheet, Slider, View } from 'react-native';
+import {
+	AppState,
+	AsyncStorage,
+	Dimensions,
+	FlatList,
+	StyleSheet,
+	Slider,
+	View,
+} from 'react-native';
 import { RNCamera } from 'react-native-camera';
 import {
 	Badge,
@@ -53,6 +61,7 @@ export default class App extends Component {
 				currentTime: 0,
 				paused: false,
 			},
+			appState: AppState.currentState,
 			wsConnectionState: WebSocket.CLOSED,
 			webrtcConnectionState: iceConnectionStates.CLOSED,
 			isLoadingLinks: true,
@@ -61,7 +70,7 @@ export default class App extends Component {
 				text: "Home",
 			}],
 			query: "",
-			// roomID: '2658894002-1136478773-1711705163-2278332068'//null
+			// roomID: '2953957117-2389650558-2211742700-1053767314'//null
 			roomID: '',
 		};
 
@@ -73,6 +82,43 @@ export default class App extends Component {
 	}
 
 	async componentWillMount() {
+		this.initiateConnection();
+	}
+
+	componentDidMount() {
+		AppState.addEventListener('change', this._handleAppStateChange);
+	}
+
+	componentWillUnmount() {
+		if (this.ws.OPEN) {
+			this.ws.close();
+		}
+		AppState.removeEventListener('change', this._handleAppStateChange);
+	}
+
+	_handleAppStateChange = (nextAppState) => {
+		// app became active from background
+		if (
+			this.state.appState.match(/inactive|background/) &&
+			nextAppState === 'active'
+		) {
+			// start reconnecting
+			this.initiateConnection();
+		}
+		// app became inactive
+		if (
+			this.state.appState === 'active' &&
+			nextAppState.match(/inactive|background/)
+		) {
+			// start reconnecting
+			if (this.ws.OPEN) {
+				this.ws.close();
+			}
+		}
+		this.setState({appState: nextAppState});
+	};
+
+	initiateConnection = async () => {
 		// hack to set roomID
 		// await AsyncStorage.setItem('roomID', this.state.roomID);
 		const roomID = await AsyncStorage.getItem('roomID');
@@ -84,21 +130,6 @@ export default class App extends Component {
 					this.setupWebsocket();
 				});
 			});
-		}
-	}
-
-	// componentDidMount() {
-	// 	if (this.state.roomID.length > 0) {
-	// 		console.info('componentDidMount', this.offerPC.iceConnectionState);
-	// 		if (this.offerPC.iceConnectionState !== 'connected') {
-	// 			this.createOffer();
-	// 		}
-	// 	}
-	// }
-
-	componentWillUnmount() {
-		if (this.ws.OPEN) {
-			this.ws.close();
 		}
 	}
 
@@ -115,7 +146,9 @@ export default class App extends Component {
 		this.ws.onopen = () => {
 			console.info('ws opened');
 			this.setState({ wsConnectionState: this.ws.readyState });
-			this.setupWebRTC();
+			// this.setupWebRTC();
+			this.sendCommand("get_video_state");
+			this.sendCommand("get_links");
 		}
 		this.ws.onclose = (event) => {
 			console.info('ws closed', event);
@@ -129,8 +162,10 @@ export default class App extends Component {
 				console.info("received answer:", description);
 				this.offerPC.setRemoteDescription(description);
 			}
-			if (message.type === "offerRequest") {
+			else if (message.type === "offerRequest") {
 				this.createOffer();
+			} else {
+				this.handleReceiveMessage(event);
 			}
 			return false;
 		}
@@ -171,13 +206,19 @@ export default class App extends Component {
 
 	sendMessage = (message) => {
 		if (this.sendChannel) {
+			// send over webrtc
 			this.sendChannel.send(message);
+			return;
+		} 
+		if (this.ws.readyState === WebSocket.OPEN) {
+			// send over ws
+			this.ws.send(message);
 		}
 	}
 
 	handleReceiveMessage = (event) => {
 		const message = JSON.parse(event.data);
-		// console.info('message received:', message);
+		console.info('message received:', message);
 		switch(message.type) {
 			case "links":
 				this.setState({ links: message.links, isLoadingLinks: false });
@@ -203,17 +244,19 @@ export default class App extends Component {
 	}
 
 	createOffer = () => {
-		this.offerPC.createOffer((desc) => {
-			const description = new RTCSessionDescription(desc);
-			this.offerPC.setLocalDescription(description, () => {
-				console.info('sending offer:', this.offerPC.localDescription);
-				this.sendWsMessage({  roomID: this.state.roomID, offer: this.offerPC.localDescription });
+		if (this.offerPC) {
+			this.offerPC.createOffer((desc) => {
+				const description = new RTCSessionDescription(desc);
+				this.offerPC.setLocalDescription(description, () => {
+					console.info('sending offer:', this.offerPC.localDescription);
+					this.sendWsMessage({  roomID: this.state.roomID, offer: this.offerPC.localDescription });
+				}, (error) => {
+					console.info(error);
+				})
 			}, (error) => {
 				console.info(error);
-			})
-		}, (error) => {
-			console.info(error);
-		});
+			});
+		}
 	}
 
 	iceConnectionStateChange = (event) => {
@@ -373,6 +416,14 @@ export default class App extends Component {
 
 	getConnectionState = () => {
 		const { wsConnectionState, webrtcConnectionState } = this.state;
+		// using only ws for comms
+		return {
+			danger: wsConnectionState === WebSocket.CLOSED,
+			warning: wsConnectionState === WebSocket.CONNECTING,
+			info: wsConnectionState === WebSocket.CONNECTED || wsConnectionState === WebSocket.OPEN,
+			success: wsConnectionState === WebSocket.CONNECTED || wsConnectionState === WebSocket.OPEN,
+		};
+		// for using only webrtc for comms
 		return {
 			danger: webrtcConnectionState === iceConnectionStates.CLOSED && wsConnectionState === WebSocket.CLOSED,
 			warning: webrtcConnectionState === iceConnectionStates.CONNECTING || wsConnectionState === WebSocket.CONNECTING,
@@ -416,6 +467,7 @@ export default class App extends Component {
 
 	renderLists = () => {
 		const connectionStyle = this.getConnectionState();
+		console.info(connectionStyle);
 		if (!this.state.roomID || !connectionStyle.success) return (<Spinner />);
 		const quickLinks = this.state.links.filter(link => link.href.indexOf("/watch") === -1);
 		const defaultLinks = [{
@@ -514,6 +566,9 @@ export default class App extends Component {
 	}
 
 	render() {
+		if (this.state.appState.match(/inactive|background/)) {
+			return null;
+		}
 		return (
 			<StyleProvider  style={getTheme(customVariables)}>
 				<Container style={{ backgroundColor: customVariables.brandDark }}>
